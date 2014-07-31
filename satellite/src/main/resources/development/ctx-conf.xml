@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+	xsi:schemaLocation="
+            http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+            http://www.springframework.org/schema/context
+                http://www.springframework.org/schema/context/spring-context.xsd
+            http://www.springframework.org/schema/rabbit
+                http://www.springframework.org/schema/rabbit/spring-rabbit-1.0.xsd">
+
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:sat-conf.properties</value>
+			</list>
+		</property>
+		<property name="placeholderPrefix">
+			<value>#[</value>
+		</property>
+		<property name="placeholderSuffix">
+			<value>]</value>
+		</property>
+	</bean>
+	
+	<!-- 常量定义 -->
+	<bean id="satConstant" class="com.baidu.deimos.satellite.constant.SatConstant">
+		<property name="DEFAULT_EXCHANGE">
+			<value>#[default.amqp.exchange]</value>
+		</property>
+		<property name="LOG_BATCH_SIZE">
+			<value>#[default.amqp.batchsize]</value>
+		</property>	
+	</bean>
+
+	<!-- #####################以下为amqp基础配置############################ -->
+
+	<!-- 推送服务类定引入 -->
+	<bean id="satAPI" class="com.baidu.deimos.satellite.api.DeimosSatelliteAPI" />
+
+	<!-- 工厂 -->
+	<rabbit:connection-factory id="connectionFactory"
+		host="#[default.amqp.host]" username="#[default.amqp.username]" password="#[default.amqp.password]" port="#[default.amqp.port]" virtual-host="/" />
+
+
+	<!-- 消息传递过程中的消息转换模板定义 -->
+	<bean id="jsonMessageConverter"
+		class="com.baidu.deimos.satellite.convert.FastJsonMessageConverter"></bean>
+
+	<!-- 定义消息发布接受的template -->
+	<rabbit:template id="amqpTemplate" connection-factory="connectionFactory"
+		message-converter="jsonMessageConverter" />
+
+	<!-- 事务管理 -->
+	<bean id="rabbitTransactionManager"
+		class="org.springframework.amqp.rabbit.transaction.RabbitTransactionManager">
+		<property name="connectionFactory" ref="connectionFactory" />
+	</bean>
+	
+	<!-- 定时器相关配置 -->
+	<bean id="scheduleFactory" class="org.quartz.impl.StdSchedulerFactory"/>
+</beans>

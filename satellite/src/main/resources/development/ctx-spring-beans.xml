@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+	xsi:schemaLocation="
+            http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+            http://www.springframework.org/schema/context
+                http://www.springframework.org/schema/context/spring-context.xsd
+            http://www.springframework.org/schema/rabbit
+                http://www.springframework.org/schema/rabbit/spring-rabbit-1.0.xsd">
+
+	<!-- enable autowire -->
+	<context:annotation-config />
+	<context:component-scan base-package="*" />
+
+	<!-- 
+		以下用以声明所有的bundle。目前有日志采集 以及 文件推送 两个bundle 
+		一个amqp bundle的具体实例. 
+		timer
+			该bundle如果需要定时触发，则引用该标签。语法同quartz
+		active 
+			该bundle是否激活：默认为true（可选） 
+		concurrency
+			 赋予该bundle的并发线程：默认为10（可选） 
+		pubDest 
+			要发布的目的地（可选，无需push则不选，默认为deimos-common） 
+		pubKeys
+			要发布的信息key, 多个key则以逗号分隔。eg. collect.alarm.*, collect.log.error（可选，无需push则不选）
+		subDest 
+			要订阅的数据来源（可选，默认为deimos-common） 
+		subKeys
+			要订阅的信息key, 多个key则以逗号分隔。eg. collect.alarm.*, collect.log.error（可选，无需订阅则不选）
+		subQueues 
+			订阅的队列信息，可支持多个订阅 。如果不是需要特殊指定交换机exchange，或者队列Queue的，可以不采用该种方法
+		taskExcutor
+			执行任务的bundle的执行器。可设置为同步/异步。默认为同步excutor
+	-->
+	
+	<!-- 日志采集bundle，较为完整写法 -->
+	<!--<bean id="amqplogcollect"
+		class="com.baidu.deimos.satellite.core.collector.amq.LogAmqpCollector">
+		<property name="timer" value="0/30 * * * * ?"/>
+		<property name="active" value="true" />
+		<property name="concurrency" value="1" />
+		<property name="pubDest" value="deimos-common" />
+		<property name="pubKeys" value="push.file.total" />
+		<property name="subQueues">
+			<list>
+				<ref bean="queueForLog" />
+			</list>
+		</property>
+	</bean>-->
+
+	<!-- 日志收集器 
+	<bean id="infoLogCollect"
+		class="com.baidu.deimos.satellite.core.collector.CommonAmqpCollectBundle">
+		<property name="pubKeys" value="push.file.info" />
+		<property name="subKeys" value="collect.log.*" />
+	</bean>-->
+
+	<!-- 警报收集器 -->
+	<bean id="alarmCollector"
+		class="com.baidu.deimos.satellite.workflow.collector.CommonAmqpCollectBundle">
+	 	<property name="timer" value="0/30 * * * * ?"/>
+		<property name="pubKeys" value="process.alarm.*" />
+		<property name="subKeys" value="collect.alarm.*, collect.log.error" />
+	</bean>
+
+	<!-- 系统警报处理器 -->
+ 	<bean id="systemAlarmProcessor" class="com.baidu.deimos.satellite.workflow.processor.SystemAlarmInfoBundle">
+		<property name="pubKeys" value="push.mail" />
+		<property name="subKeys" value="process.alarm.*" />
+	</bean>
+
+	<!-- 邮件发送器-->
+	<bean id="mailPusher" class="com.baidu.deimos.satellite.workflow.pusher.EmailPusherBundle">
+		<property name="subKeys" value="push.mail" />
+	</bean>
+
+	<!-- 文件推送bundle -->
+	<!--<bean id="filepusher" class="com.baidu.deimos.satellite.workflow.pusher.Log4jFilePusher">
+		<property name="subQueues">
+			<list>
+				<ref bean="queueForPushFile" />
+			</list>
+		</property>
+	</bean> -->
+
+
+	<!-- 
+		以下用以声明所有的可订阅信息 ，仅在bundle需要订阅多个消息的时候、或者需要定制特殊交换机和队列时候使用。
+		一个queueconfig代表一个订阅信息
+		exchangeName 
+			要订阅的消息来源（可选，默认为deimos-commmon） 
+		queue 
+			要监听的队列（可选。如没有定义，则会随机产生一个队列，不复用同一个，以免造成消息堵塞）
+		bindingKey 
+			绑定信息密钥。
+		
+		 最简便的写法即为： 
+		<bean id="queueForPushFile" class="com.baidu.deimos.satellite.bo.AmqpQueueConfig" >
+			 <property name="bindingKey" value="push.file.*"/> 
+		</bean> 
+	-->
+	
+	<!-- 所有日志消息的订阅 -->
+	<bean id="queueForLog" class="com.baidu.deimos.satellite.bo.AmqpQueueConfig">
+		<property name="exchangeName" value="deimos-common" />
+		<property name="queue" value="logQueue" />
+		<property name="bindingKey" value="collect.log.*" />
+	</bean>
+	
+	<!-- info日志消息的订阅 -->
+	<bean id="queueForLogInfo" class="com.baidu.deimos.satellite.bo.AmqpQueueConfig">
+		<property name="bindingKey" value="collect.log.info" />
+	</bean>
+	
+	<!-- error日志消息的订阅 -->
+	<bean id="queueForLogError" class="com.baidu.deimos.satellite.bo.AmqpQueueConfig">
+		<property name="bindingKey" value="collect.log.error" />
+	</bean>
+
+	<!-- 文件推送消息的订阅 -->
+	<bean id="queueForPushFile" class="com.baidu.deimos.satellite.bo.AmqpQueueConfig">
+		<property name="bindingKey" value="push.file.*" />
+	</bean>
+
+	<!-- ************************************************************ -->
+
+	<import resource="ctx-conf.xml" />
+
+</beans>
